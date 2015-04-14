@@ -95,11 +95,39 @@ create or replace function generate_view ( -- creates view
 )
 returns text -- NULL, if new entity created without error, otherwise error string
 language plpgsql
-as $function$  
+as $function$ 
+  declare
+    entity_id bigint,
+    base_entity_id bigint
   begin;
     
   end;
 $function$;
+
+--DO $$
+declare 
+	i int;
+	s text;
+begin
+	s = '';
+for i in 
+	select 0 union select 1 union select 2 union select 3 union select 4 
+	union select 5 union select 6 union select 7 union select 8 union select 9 
+loop
+	s = s || i;
+end loop;
+RAISE NOTICE '%', s;
+--END $$;
+
+'create or replace view %s as select' ||
+
+'from %s_main m ' ||
+
+
+inner join employee_secondary b1
+	on e.id = b1.id and b1.batch = 1
+inner join employee_secondary b2
+	on e.id = b2.id and b2.batch = 2	
 
 create or replace view employee as
 select e.id as id, e.name as name, b1.varchar_col1 as address, b2.varchar_col1 as position
