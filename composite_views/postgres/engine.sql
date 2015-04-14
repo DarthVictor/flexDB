@@ -8,18 +8,42 @@ create table entities
   constraint entities_pkey primary key (id)
 );
 
+drop table if exists fields cascade;
 create table fields
 (
   id bigserial not null,
   entities_id bigint not null  REFERENCES entities (id),
   name varchar(128) not null,
   display_name varchar(128) not null,  
-  data_type varchar(128) not null,
+  data_type_id bigint not null  REFERENCES data_types (id),
   is_flex boolean not null,
-  batch_no int not null,
- -- batch_no bigint not null,
+  batch_no int null,
+  field_in_batch_no int null,
   constraint fields_pkey primary key (id)
 );
+
+drop table if exists data_types cascade;
+create table data_types
+(
+  id bigserial not null,
+  name varchar(128) not null,
+  display_name varchar(128) not null,  
+  sql_name varchar(128) unique not null,
+  constraint data_types_pkey primary key (id)
+);
+
+drop table if exists entities_attr cascade;
+create table entities_attr
+(
+  id bigserial not null,
+  entities_id bigint not null  REFERENCES entities (id),
+  data_type_id bigint not null  REFERENCES data_types (id),
+  num_of_fields int null
+  constraint entities_attr_pkey primary key (id)
+);
+
+
+
 
 create or replace function create_entity(
   IN entity_name varchar(128),
@@ -30,7 +54,8 @@ returns text -- NULL, if new entity created without error, otherwise error strin
 language plpgsql
 as $function$
    declare
-    entity_id bigint
+    entity_id bigint,
+    base_entity_id bigint
    begin
       start transaction serializable 
 
@@ -48,17 +73,41 @@ as $function$
         create_table_like(entity_name + '_attrs', base_entity_name + '_attrs')
         insert into entities(name, display_name) values(entity_name, entity_display_name)
         select entity_id = id from entities where name = entity_name
-        insert into fields(name, display_name) 
-        from fields
-        generate_view_function()
-        generate_trigger_function()
+        select base_entity_id = id from entities where name = base_entity_name
+       
+        insert into fields(name, display_name, is_flex, data_type_id, batch_no, field_in_batch_no) 
+                    select name, display_name, is_flex, data_type_id, batch_no, field_in_batch_no
+        from fields where entities_id = base_entity_id
+        
+        insert into entities_attr(entities_id, data_type_id, num_of_fields)
+                          select  entities_id, data_type_id, num_of_fields
+        from entities_attr where entities_id = base_entity_id
+        
+        generate_view(entity_id)
+        generate_trigger(entity_id)
       
       commit;
     end;
 $function$;
 
+create or replace function generate_view ( -- creates view
+  entity_id bigint
+)
+returns text -- NULL, if new entity created without error, otherwise error string
+language plpgsql
+as $function$  
+  begin;
+    
+  end;
+$function$;
 
-
+create or replace view employee as
+select e.id as id, e.name as name, b1.varchar_col1 as address, b2.varchar_col1 as position
+from employee_main e
+inner join employee_secondary b1
+	on e.id = b1.id and b1.batch = 1
+inner join employee_secondary b2
+	on e.id = b2.id and b2.batch = 2	
 
 create or replace function employee_view_dml()
 returns trigger
